@@ -179,9 +179,12 @@
         .large-skill:hover { border-color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1); transform: translateY(-3px); }
 
         /* --- CONTACT FORM STYLES --- */
+        /* --- CONTACT FORM STYLES --- */
         .contact-form {
             display: flex; flex-direction: column; gap: 1.5rem; width: 100%; max-width: 600px;
-            background: var(--surface-glass); padding: 40px; border-radius: 12px; border: 1px solid var(--surface-border); backdrop-filter: blur(8px);
+            background: var(--surface-glass); padding: 40px; border-radius: 12px; 
+            border: 1px solid var(--surface-border); backdrop-filter: blur(8px);
+            margin: 0 auto; /* <-- THIS IS THE MAGIC LINE THAT CENTERS THE BOX */
         }
         .form-input {
             background: rgba(0,0,0,0.4); border: 1px solid var(--surface-border); padding: 15px; border-radius: 8px;
@@ -446,7 +449,7 @@
                 <div class="timeline-item hover-target">
                     <div class="timeline-date"><span class="date-text">Dec 2021 -<br>Jul 2025</span></div>
                     <div class="timeline-content">
-                        <h3>B.E. Computer Science and Engineering</h3>
+                        <h3>B.Tech in Computer Science and Engineering (Data Science)</h3>
                         <h4>St. Vincent Pallotti College of Engineering & Technology</h4>
                         <p>Specialization in Data Science. Member of SRC and conducted event "Nebula Nexus". CGPA: 7.81</p>
                     </div>
@@ -617,13 +620,21 @@
 
         <section id="contact" class="content-section">
             <h2>System.Contact()</h2>
-            <form action="https://formspree.io/f/YOUR_FORMSPREE_ID" method="POST" class="contact-form">
-                <p style="color: var(--text-secondary); margin-bottom: 10px; font-size: 0.95rem;">
+            
+            <form action="https://formspree.io/f/maqvbowr" method="POST" class="contact-form">
+                <p style="color: var(--text-secondary); margin-bottom: 10px; font-size: 0.95rem; text-align: center;">
                     Interested in working together? Send me a message directly to my inbox.
                 </p>
+                
                 <input type="text" name="name" placeholder="Your Name" required class="form-input hover-target">
                 <input type="email" name="email" placeholder="Your Email Address" required class="form-input hover-target">
+                
+                <input type="tel" name="phone" placeholder="Your Phone Number" required class="form-input hover-target">
+                
+                <input type="text" name="company" placeholder="Your Company Name" class="form-input hover-target">
+                
                 <textarea name="message" placeholder="Your Message" required class="form-input hover-target" rows="5"></textarea>
+                
                 <button type="submit" class="action-btn hover-target" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 12px; font-weight: bold; margin-top: 10px; color: var(--text-primary); border-color: var(--accent-cyan);">
                     Send Message
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 5px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>

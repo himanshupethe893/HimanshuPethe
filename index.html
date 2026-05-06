@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Himanshu Pethe</title>
+    
+    
+    <!-- Three.js 3D Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+    <style>
+        /* --- Core Variables --- */
+        :root {
+            --bg-color: #030303;
+            --surface-glass: rgba(10, 10, 15, 0.6);
+            --surface-border: rgba(0, 242, 254, 0.2);
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-cyan: #00f2fe;
+            --accent-purple: #4facfe;
+            --font-main: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { background-color: var(--bg-color); scroll-behavior: smooth; overflow-x: hidden; }
+        
+        body {
+            background-color: transparent; 
+            color: var(--text-primary);
+            font-family: var(--font-main); 
+            line-height: 1.6;
+            overflow-x: hidden; 
+            cursor: none; 
+        }
+
+        /* --- RESTORE SYSTEM CURSOR FOR MODALS --- */
+        body.modal-open { cursor: default !important; }
+        body.modal-open .cursor-dot, body.modal-open .cursor-outline { display: none !important; }
+        .modal-overlay, .modal-content { cursor: default !important; }
+        .action-btn, a, button, .hover-target, .filter-btn { cursor: pointer; }
+
+        /* --- CUSTOM SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); border-left: 1px solid var(--surface-border); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 242, 254, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); }
+
+        /* --- 3D Canvas & Noise --- */
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+        .noise {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9998; opacity: 0.04;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* --- Custom Cursor --- */
+        .cursor-dot { position: fixed; top: 0; left: 0; width: 6px; height: 6px; background-color: var(--accent-cyan); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 999999; transition: width 0.2s, height 0.2s; }
+        .cursor-outline { position: fixed; top: 0; left: 0; width: 30px; height: 30px; border: 1px solid rgba(0, 242, 254, 0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 999998; transition: transform 0.1s ease-out, width 0.2s, height 0.2s, background-color 0.2s; }
+        body.hovering .cursor-outline { width: 50px; height: 50px; background-color: rgba(0, 242, 254, 0.1); border-color: transparent; }
+        body.hovering .cursor-dot { width: 0; height: 0; }
+
+        /* --- TOP LEFT DESKTOP LOGO --- */
+        #desktop-logo {
+            position: fixed;
+            top: 30px;
+            left: 45px;
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+            letter-spacing: 6px;
+            text-decoration: none;
+            z-index: 10000;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #desktop-logo.scrolled {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        #desktop-logo:hover {
+            /* color: #fff; */
+            text-shadow: 0 0 20px var(--accent-cyan);
+        }
+
+        /* --- Minimalist Navigation --- */
+        nav {
+            position: fixed; top: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(10, 10, 10, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 1rem 2.5rem; border-radius: 50px; border: 1px solid var(--surface-border);
+            display: flex; gap: 2.5rem; align-items: center; z-index: 10000;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s ease; width: max-content;
+        }
+        nav.scrolled { opacity: 1; pointer-events: all; }
+        
+        .nav-logo { display: none; } /* Hidden on desktop, shown on mobile */
+        
+        nav a:not(.nav-logo) {
+            color: var(--text-primary); text-decoration: none; font-family: var(--font-mono);
+            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; position: relative;
+        }
+        nav a:not(.nav-logo)::after {
+            content: ''; position: absolute; width: 0; height: 2px; bottom: -6px; left: 0;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); transition: width 0.3s ease;
+        }
+        nav a:not(.nav-logo):hover::after { width: 100%; }
+
+        /* --- THE GLASS TERMINAL HERO --- */
+        .hero-wrapper {
+            position: relative; height: 100dvh; width: 100vw; max-width: 100%; overflow: hidden;
+            display: flex; align-items: center; justify-content: center; z-index: 10;
+        }
+        
+        #hero-content {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; max-width: 850px; padding: 0 20px; will-change: transform, opacity;
+        }
+
+        .terminal-window {
+            background: var(--surface-glass);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0, 242, 254, 0.05) inset;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: rgba(0,0,0,0.4); padding: 12px 20px; border-bottom: 1px solid var(--surface-border);
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .terminal-header .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot.red { background: #ff5f56; } .dot.yellow { background: #ffbd2e; } .dot.green { background: #27c93f; }
+        .terminal-title { margin-left: auto; margin-right: auto; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); }
+
+        .terminal-body { padding: 50px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+        .terminal-body h1 { 
+            font-size: 5rem; margin-bottom: 1rem; font-weight: 800; letter-spacing: -2px; 
+            background: linear-gradient(135deg, #fff 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 5px 25px rgba(0,242,254,0.2);
+        }
+
+        .typewriter-container { width: 100%; min-height: 40px; margin-bottom: 2rem; display: flex; justify-content: center; }
+        .typewriter-text {
+            font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-secondary);
+            border-right: 2px solid var(--accent-cyan); white-space: nowrap; overflow: hidden;
+            animation: typing 3s steps(40, end), blink 0.75s step-end infinite;
+        }
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink { 50% { border-color: transparent } }
+
+        /* Action Buttons */
+        .action-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; font-family: var(--font-mono); font-size: 0.85rem; width: 100%; }
+        .action-btn {
+            background: rgba(0,0,0,0.5); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 20px; border-radius: 8px; transition: all 0.3s; display: flex; align-items: center; gap: 8px; text-decoration: none; 
+        }
+        .action-btn:hover { color: var(--text-primary); border-color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1); box-shadow: 0 0 15px rgba(0,242,254,0.2); transform: translateY(-2px); }
+        .resume-btn { background: rgba(0, 242, 254, 0.1); border-color: rgba(0, 242, 254, 0.4); color: var(--accent-cyan); }
+        .resume-btn:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px var(--accent-cyan); }
+        
+        .social-row { display: flex; gap: 20px; justify-content: center; margin-top: 2rem; }
+        .social-link { color: var(--text-secondary); transition: all 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); }
+        .social-link:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0, 242, 254, 0.2); }
+
+        .scroll-indicator { position: absolute; bottom: 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); letter-spacing: 1px; animation: fadeFloat 2s infinite ease-in-out; width: 100%; left: 0;}
+        .mouse { width: 22px; height: 34px; border: 1px solid var(--text-secondary); border-radius: 11px; position: relative; }
+        .mouse::before { content: ''; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 2px; height: 6px; background: var(--accent-cyan); border-radius: 2px; animation: scrollWheel 1.5s infinite; }
+        @keyframes scrollWheel { 0% { top: 6px; opacity: 1; } 100% { top: 18px; opacity: 0; } }
+        @keyframes fadeFloat { 0%, 100% { opacity: 0.4; transform: translateY(0); } 50% { opacity: 1; transform: translateY(5px); } }
+
+        /* --- MAIN CONTENT SECTIONS --- */
+        .main-content { position: relative; z-index: 20; background: transparent; padding-bottom: 100px; width: 100vw; max-width: 100%; overflow-x: hidden;}
+        
+        .content-section { padding: 80px 20px 40px; max-width: 900px; margin: 0 auto; opacity: 0; transform: translateY(40px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; scroll-margin-top: 100px; }
+        .content-section.visible { opacity: 1; transform: translateY(0); }
+        h2 { font-size: 2.5rem; margin-bottom: 2rem; font-weight: 700; letter-spacing: -1px; background: linear-gradient(to right, #fff, var(--text-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* --- DYNAMIC FILTERS --- */
+        .filter-container { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 3rem; margin-left: 140px; }
+        .filter-btn { background: rgba(0, 0, 0, 0.5); border: 1px solid var(--surface-border); color: var(--text-secondary); padding: 6px 16px; border-radius: 30px; font-family: var(--font-mono); font-size: 0.8rem; transition: all 0.3s; backdrop-filter: blur(4px); }
+        .filter-btn:hover, .filter-btn.active { color: var(--text-primary); border-color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1); box-shadow: 0 0 10px rgba(0, 242, 254, 0.2); }
+        .filterable-item { transition: opacity 0.4s ease; }
+
+        /* --- TIMELINE --- */
+        .timeline-container { position: relative; max-width: 900px; margin: 0 auto; border-left: 2px solid rgba(0, 242, 254, 0.2); padding-left: 50px; margin-left: 180px; }
+        .timeline-item { position: relative; display: block; width: 100%; margin-bottom: 4rem; transition: transform 0.3s ease; }
+        .timeline-item:hover { transform: translateX(8px); }
+
+        .timeline-item::before { content: ''; position: absolute; left: -57px; top: 25px; width: 14px; height: 14px; border-radius: 50%; background-color: var(--bg-color); border: 2px solid var(--accent-cyan); transition: all 0.3s ease; z-index: 2; }
+        .timeline-item:hover::before { background-color: var(--accent-cyan); box-shadow: 0 0 15px var(--accent-cyan); }
+
+        .timeline-date { position: absolute; left: -190px; width: 120px; top: 20px; text-align: right; }
+        .date-text { display: block; color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.6; letter-spacing: 0.5px; }
+        .date-text.highlight { color: var(--accent-cyan); }
+        .date-text.cert { color: var(--accent-purple); }
+
+        .timeline-content { background: var(--surface-glass); backdrop-filter: blur(8px); border: 1px solid var(--surface-border); border-radius: 12px; padding: 25px; transition: border-color 0.3s, box-shadow 0.3s; width: 100%; }
+        .timeline-item:hover .timeline-content { border-color: rgba(0, 242, 254, 0.3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        
+        .timeline-content h3 { font-size: 1.4rem; color: #fff; margin-bottom: 0.3rem; transition: color 0.3s ease; }
+        .timeline-item:hover .timeline-content h3 { color: var(--accent-cyan); }
+        .timeline-content h4 { font-size: 1rem; color: var(--text-secondary); font-weight: 400; margin-bottom: 1rem; }
+        .timeline-content p, .timeline-content ul { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem; }
+        .timeline-content ul { padding-left: 1.2rem; } .timeline-content li { margin-bottom: 0.5rem; }
+
+        .skills-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .skill-tag { background: rgba(0,0,0,0.3); border: 1px solid var(--surface-border); color: var(--text-secondary); padding: 4px 10px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.75rem; transition: all 0.3s; }
+        .timeline-item:hover .skill-tag { border-color: rgba(0,242,254,0.3); color: var(--text-primary); }
+
+        /* SKILLS ONLY GRID SECTION */
+        .skills-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 140px; }
+        .large-skill { background: var(--surface-glass); border: 1px solid var(--surface-border); color: var(--text-primary); padding: 10px 20px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.9rem; backdrop-filter: blur(8px); transition: all 0.3s ease; display: inline-flex; align-items: center; }
+        .large-skill:hover { border-color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1); transform: translateY(-3px); }
+
+        /* --- 95% FULL SCREEN MODAL STYLES --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 3, 3, 0.8);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); z-index: 30000; 
+            display: flex; justify-content: center; align-items: center; 
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        
+        .modal-content {
+            position: relative; background: rgba(10, 10, 15, 0.95); padding: 2rem; border-radius: 12px;
+            border: 1px solid var(--accent-cyan); width: 95vw !important; max-width: 95vw !important; 
+            height: 95vh !important; max-height: 95vh !important; overflow-y: auto; display: flex; 
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 50px rgba(0,242,254,0.1);
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .close-btn { position: absolute; top: 15px; right: 25px; background: transparent; border: none; color: var(--text-primary); font-size: 2.5rem; transition: color 0.3s; line-height: 1; z-index: 100; font-weight: bold;}
+        .close-btn:hover { color: var(--accent-cyan); }
+
+        /* Direct Download Resume Modal */
+        .resume-split { display: flex; gap: 40px; justify-content: center; align-items: center; flex-wrap: wrap; width: 100%; height: 100%; }
+        .resume-card { background: rgba(20,20,25,0.8); border: 1px solid var(--surface-border); border-radius: 12px; padding: 40px 20px; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; transition: all 0.3s; }
+        .resume-card:hover { border-color: var(--accent-cyan); box-shadow: 0 10px 40px rgba(0,242,254,0.2); transform: translateY(-5px); }
+        .resume-card h3 { font-size: 1.5rem; margin-bottom: 20px; color: #fff; }
+
+        #cert-iframe { width: 100%; height: 100%; border: none; border-radius: 8px; background: #fff; }
+
+        /* --- FLAWLESS MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            body { cursor: auto; } .cursor-dot, .cursor-outline, .noise { display: none; }
+            h2 { text-align: center; } 
+
+            /* Hide Desktop Logo */
+            #desktop-logo { display: none !important; }
+
+            /* Ergonomic Bottom Navigation */
+            nav { top: auto; bottom: 15px; width: 95%; padding: 0.8rem 1rem; gap: 10px; justify-content: center; flex-wrap: wrap; border-radius: 15px; }
+            nav a:not(.nav-logo) { font-size: 0.7rem; padding: 4px; }
+            .nav-logo { display: flex; width: 100%; text-align: center; justify-content: center; margin-right: 0; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent-cyan); font-weight: bold; text-decoration: none;}
+            
+            .hero-wrapper { height: 100vh; height: 100dvh; }
+            #hero-content { padding: 0 15px; width: 100%; top: 45%; }
+            .terminal-body { padding: 30px 20px; }
+            .terminal-body h1 { font-size: 2.8rem; }
+            .typewriter-text { font-size: 0.85rem; white-space: normal !important; animation: none !important; border: none !important; width: 100% !important; text-align: center;}
+            
+            .action-links { flex-direction: column; width: 100%; align-items: center; gap: 10px; }
+            .action-btn { width: 100%; justify-content: center; }
+
+            .timeline-container { margin: 0 auto !important; padding: 0 15px !important; border-left: none !important; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 100vw; }
+            .timeline-item { width: 100%; max-width: 500px; transform: none !important; margin: 0 0 3rem 0 !important; display: flex; flex-direction: column; align-items: center; }
+            .timeline-item::before { display: none; } 
+            
+            .timeline-date { position: relative; left: 0; width: 100%; text-align: center; margin-bottom: 8px; top: 0; }
+            .date-text { display: inline-block; background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+            .date-text.cert { background: rgba(79, 172, 254, 0.1); border-color: rgba(79, 172, 254, 0.3); }
+            .timeline-date br { display: none; } 
+            
+            .timeline-content { padding: 1.5rem; width: 100%; margin-top: 0; text-align: left !important; }
+            .timeline-content h3, .timeline-content h4, .timeline-content p, .timeline-content ul { text-align: left !important; }
+            .skills-container { justify-content: flex-start !important; }
+            
+            .filter-container { margin-left: 0; justify-content: center; width: 100%; padding: 0 10px; }
+            .skills-grid { margin-left: 0; justify-content: center; width: 100%; padding: 0 10px; }
+            
+            .modal-content { padding: 3rem 1.5rem 1.5rem; width: 100%; margin: 0; border-radius: 0; border-left: none; border-right: none;}
+            .resume-split { flex-direction: column; align-items: center; width: 100%; gap: 20px;}
+            .resume-card { width: 100%; padding: 30px 15px;}
+            #cert-modal .modal-content { padding: 4rem 1rem 1rem 1rem; height: 100vh !important; max-height: 100vh !important; width: 100vw !important; max-width: 100vw !important;}
+            .close-btn { top: 10px; right: 15px;}
+            
+            .content-section { scroll-margin-top: 80px; scroll-margin-bottom: 80px; padding-top: 60px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Background Canvas (Dual Engine) -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="noise"></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <!-- TOP LEFT DESKTOP LOGO -->
+    <a href="#home" id="desktop-logo" class="hover-target">H I M A N S H U</a>
+
+    <!-- DIRECT DOWNLOAD DUAL RESUME MODAL (95% Size) -->
+    <div id="resume-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn hover-target" onclick="closeModal('resume-modal')">×</button>
+            <h2 style="font-size: 2.2rem; margin-bottom: 20px;">Download Resume</h2>
+            
+            <div class="resume-split">
+                <!-- Software Resume (Direct File Link) -->
+                <div class="resume-card">
+                    <h3>Software Engineering</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Focused on MERN Stack, Full-Stack Architecture, and Systems Design. <!--[cite: 1] --></p>
+                    <a href="/Himanshu Pethe Resume.pdf" download class="action-btn resume-btn hover-target" style="width: 100%; justify-content: center; padding: 15px;"> <!--[cite: 1] -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span>Download Dev PDF</span>
+                    </a>
+                </div>
+
+                <!-- Data Science Resume (Direct File Link) -->
+                <div class="resume-card">
+                    <h3>Data Science & Analytics</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Focused on Machine Learning, Python Analytics, and Data Visualization. <!--[cite: 2] --></p>
+                    <a href="/Himanshu_Rajesh_Pethe_Resume.pdf" download class="action-btn resume-btn hover-target" style="width: 100%; justify-content: center; border-color: var(--accent-purple); padding: 15px;"> <!--[cite: 2] -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span>Download Data PDF</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CERTIFICATION IFRAME MODAL (95% Size) -->
+    <div id="cert-modal" class="modal-overlay">
+        <div class="modal-content" style="padding-top: 50px;">
+            <button class="close-btn hover-target" onclick="closeModal('cert-modal')">×</button>
+            <iframe id="cert-iframe" src="" title="HackerRank Certification"></iframe>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav id="navbar">
+        <a href="#home" class="nav-logo hover-target">&lt;Himanshu/&gt;</a>
+        <a href="#about" class="hover-target">About</a>
+        <a href="#experience" class="hover-target">Exp</a>
+        <a href="#projects" class="hover-target">Projects</a>
+        <a href="#skills" class="hover-target">Skills</a>
+    </nav>
+
+    <!-- GLASS TERMINAL HERO SECTION -->
+    <div class="hero-wrapper" id="home">
+        <div id="hero-content">
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="terminal-title">himanshu_pethe.exe</span>
+                </div>
+                
+                <div class="terminal-body">
+                    <h1>Himanshu Pethe</h1> <!--[cite: 1, 2] -->
+                    <div class="typewriter-container">
+                        <div class="typewriter-text">> Building efficient applications and data-driven models. _</div> <!--[cite: 1, 2] -->
+                    </div>
+
+                    <div class="action-links">
+                        <button class="action-btn hover-target" onclick="copyToClipboard('himanshupethe08092003@gmail.com', this)"> <!--[cite: 1, 2] -->
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            <span>Copy Email</span>
+                        </button>
+                        <button class="action-btn hover-target" onclick="copyToClipboard('7758874752', this)"> <!--[cite: 1, 2] -->
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                            <span>Copy Phone</span>
+                        </button>
+                        <button class="action-btn resume-btn hover-target" onclick="openModal('resume-modal')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            <span>View Resume</span>
+                        </button>
+                    </div>
+
+                    <!-- SOCIAL LINKS -->
+                    <div class="social-row">
+                        <a href="https://www.linkedin.com/in/himanshu-pethe-5906bb1a9/" target="_blank" class="social-link hover-target" title="LinkedIn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                        </a>
+                        <a href="https://github.com/himanshupethe893" target="_blank" class="social-link hover-target" title="GitHub">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                        </a>
+                        <a href="https://www.hackerrank.com/profile/himanshupethe081" target="_blank" class="social-link hover-target" title="HackerRank">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scroll-indicator">
+            <div class="mouse"></div>
+            Scroll to Discover
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <!-- ABOUT PROFILE -->
+        <section id="about" class="content-section">
+            <h2>System.About()</h2>
+            <div class="timeline-container" style="margin-bottom: 0;">
+                <div class="timeline-item">
+                    <div class="timeline-date"><span class="date-text">Profile</span></div>
+                    <div class="timeline-content">
+                        <p>As a 2025 Computer Science and Engineering (Data Science) graduate from St. Vincent Pallotti College, my expertise spans MERN stack architecture and Data Analytics. <!--[cite: 1, 2] --></p>
+                        <p>I possess a robust technical skillset encompassing Python, SQL, and Full Stack Development. I enjoy digging into data to uncover insights, utilizing Machine Learning models, and building intelligent solutions to drive value for organizations. <!--[cite: 1, 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag" style="border-color: var(--accent-purple); color: var(--accent-purple);">MERN Stack</span> <!--[cite: 1, 2] -->
+                            <span class="skill-tag" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">Python & Data Science</span> <!--[cite: 1, 2] -->
+                            <span class="skill-tag" style="border-color: var(--accent-purple); color: var(--accent-purple);">Cloud Architecture</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DYNAMIC FILTER EXPERIENCE -->
+        <section id="experience" class="content-section">
+            <h2>Experience.Log</h2>
+            
+            <div class="filter-container" id="exp-filters">
+                <button class="filter-btn active hover-target" onclick="filterSection('experience-list', 'all', this)">All Roles</button>
+                <button class="filter-btn hover-target" onclick="filterSection('experience-list', 'backend', this)">Backend / MERN</button>
+                <button class="filter-btn hover-target" onclick="filterSection('experience-list', 'frontend', this)">Frontend / UI</button>
+            </div>
+
+            <div class="timeline-container" id="experience-list">
+                
+                <div class="timeline-item filterable-item hover-target" data-category="backend frontend">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Dec 2024 -<br>May 2025</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>MERN Developer Intern</h3>
+                        <h4>Yash Industries, Nagpur</h4> <!--[cite: 1, 2] -->
+                        <ul>
+                            <li>Led a development team creating a platform for HR, students, and colleges using MongoDB, Express, React, and Node.js. <!--[cite: 1, 2] --></li>
+                            <li>Built key features, including HR job postings, student selection, practice tests, and an e-commerce section. <!--[cite: 1, 2] --></li>
+                            <li>Performed Unit Testing on APIs via Postman to guarantee secure data transmission. <!--[cite: 1] --></li>
+                        </ul>
+                        <div class="skills-container">
+                            <span class="skill-tag">MongoDB</span> <span class="skill-tag">Express.js</span> <span class="skill-tag">React.js</span> <span class="skill-tag">Node.js</span> <span class="skill-tag">Postman QA</span> <!--[cite: 1, 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="frontend">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Jul 2024 -<br>Jul 2024</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Web Developer Intern</h3>
+                        <h4>Alaaddin & Co, Nagpur</h4> <!--[cite: 1, 2] -->
+                        <ul>
+                            <li>Engineered and maintained applications leveraging HTML, CSS, JS, and MySQL. <!--[cite: 1, 2] --></li>
+                            <li>Contributed frontend UI and database integration for a Client and Vendor Management System. <!--[cite: 1, 2] --></li>
+                        </ul>
+                        <div class="skills-container">
+                            <span class="skill-tag">JavaScript</span> <span class="skill-tag">MySQL</span> <span class="skill-tag">Frontend UI</span> <!--[cite: 1, 2] -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- EDUCATION (Static Timeline) -->
+        <section id="education" class="content-section">
+            <h2>Education.Log</h2>
+            <div class="timeline-container">
+
+                <div class="timeline-item hover-target">
+                    <div class="timeline-date">
+                        <span class="date-text">Dec 2021 -<br>Jul 2025</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>B.E. Computer Science and Engineering</h3>
+                        <h4>St. Vincent Pallotti College of Engineering & Technology</h4> <!--[cite: 1, 2] -->
+                        <p>Specialization in Data Science. Member of SRC and conducted event "Nebula Nexus". CGPA: 7.81 <!--[cite: 1, 2] --></p>
+                    </div>
+                </div>
+
+                <div class="timeline-item hover-target">
+                    <div class="timeline-date">
+                        <span class="date-text">Jun 2019 -<br>Aug 2021</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Higher Secondary School Certificate (12th)</h3>
+                        <h4>Decent Junior College, Nagpur</h4> <!--[cite: 1, 2] -->
+                        <p>Score: 97.33% <!--[cite: 1, 2] --></p>
+                    </div>
+                </div>
+
+                <div class="timeline-item hover-target">
+                    <div class="timeline-date">
+                        <span class="date-text">Completed<br>2019</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Secondary School Certificate (10th)</h3>
+                        <h4>Sanjuba High School, Nagpur</h4> <!--[cite: 1, 2] -->
+                        <p>Score: 85.6% <!--[cite: 1, 2] --></p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- DYNAMIC FILTER PROJECTS -->
+        <section id="projects" class="content-section">
+            <h2>Deployed_Projects.Log</h2>
+            
+            <div class="filter-container" id="project-filters">
+                <button class="filter-btn active hover-target" onclick="filterSection('projects-list', 'all', this); window.set3DTheme('all')">All Projects</button>
+                <button class="filter-btn hover-target" onclick="filterSection('projects-list', 'software', this); window.set3DTheme('software')">Software Dev / Full-Stack</button>
+                <button class="filter-btn hover-target" onclick="filterSection('projects-list', 'data', this); window.set3DTheme('data')">Data Science / Analytics</button>
+            </div>
+
+            <div class="timeline-container" id="projects-list">
+                
+                <!-- DATA SCIENCE / ANALYTICS PROJECTS -->
+                <div class="timeline-item filterable-item hover-target" data-category="data">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Machine<br>Learning</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Wine Quality Predictive Analytics</h3> <!--[cite: 2] -->
+                        <p>Developed a binary classification model using Random Forest, achieving 92.28% accuracy. Conducted EDA with Pandas and Seaborn, and optimized performance using GridSearchCV across Random Forest, SVM, XGBoost, and Decision Tree algorithms. <!--[cite: 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Python</span> <span class="skill-tag">Random Forest</span> <span class="skill-tag">Scikit-learn</span> <span class="skill-tag">Pandas</span> <!--[cite: 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="data">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Data<br>Visualization</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>E-Commerce Sales Dashboard</h3> <!--[cite: 2] -->
+                        <p>Designed an interactive Power BI dashboard tracking KPIs like $12.64M Total Sales. Mapped Profit by Country and constructed time-series visualizations to monitor monthly sales fluctuations and seasonal patterns. <!--[cite: 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Power BI</span> <span class="skill-tag">Data Analytics</span> <span class="skill-tag">Time-Series</span> <!--[cite: 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="data">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Machine<br>Learning</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Heart Attack Risk Prediction</h3> <!--[cite: 2] -->
+                        <p>Built a model to predict heart attack risk using patient health metrics. Performed data cleaning and EDA, comparing Decision Tree and Random Forest classifiers. Achieved 64.17% accuracy with hyperparameter tuning. <!--[cite: 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Python</span> <span class="skill-tag">Scikit-learn</span> <span class="skill-tag">Pandas/NumPy</span> <!--[cite: 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="data">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Supply<br>Chain</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Enterprise Order Performance Visualization</h3> <!--[cite: 1] -->
+                        <p>Developed an interactive dashboard in Tableau using 500+ records to uncover insights on order trends and delivery performance, enabling strategic decision-making. <!--[cite: 1] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Tableau</span> <span class="skill-tag">Python (EDA)</span> <!--[cite: 1] -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SOFTWARE DEV PROJECTS -->
+                <div class="timeline-item filterable-item hover-target" data-category="software">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Full-Stack<br>Platform</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>HR-Student-Admin Job Platform</h3> <!--[cite: 1, 2] -->
+                        <p>Developed a full-stack platform enabling HRs to post jobs, colleges to conduct tests, and students to access resources. Led frontend and backend architecture. <!--[cite: 1, 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Node.js</span> <span class="skill-tag">React.js</span> <span class="skill-tag">MongoDB</span> <span class="skill-tag">Express.js</span> <!--[cite: 1, 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="software">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Backend<br>Systems</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>T&P Cell Management System</h3> <!--[cite: 1, 2] -->
+                        <p>Optimized student placement data and process automation using Python and a robust MySQL RDBMS architecture to reduce manual effort. <!--[cite: 1, 2] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Python</span> <span class="skill-tag">MySQL</span> <span class="skill-tag">RDBMS</span> <!--[cite: 1, 2] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="software">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Web<br>Platform</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>Client & Vendor Management System</h3> <!--[cite: 1] -->
+                        <p>Streamlined client/vendor data management to improve operational efficiency. Integrated frontend with SQL databases and tested APIs via Postman. <!--[cite: 1] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">JavaScript</span> <span class="skill-tag">SQL</span> <span class="skill-tag">API Testing</span> <!--[cite: 1] -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item filterable-item hover-target" data-category="software">
+                    <div class="timeline-date">
+                        <span class="date-text highlight">Frontend<br>Design</span>
+                    </div>
+                    <div class="timeline-content">
+                        <h3>
+                            <a href="https://www.mipnagpur.edu.in/" target="_blank" style="color: inherit; text-decoration: none;" class="hover-target">
+                                MIP College Website 
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px; margin-bottom: -1px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                            </a>
+                        </h3> <!--[cite: 1] -->
+                        <p>Designed and structured key institutional pages ensuring a responsive, visually appealing design and cross-browser compatibility. <!--[cite: 1] --></p>
+                        <div class="skills-container">
+                            <span class="skill-tag">HTML5</span> <span class="skill-tag">CSS3</span> <span class="skill-tag">UI/UX</span> <!--[cite: 1] -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DYNAMIC FILTER SKILLS -->
+        <section id="skills" class="content-section">
+            <h2>Technical_Capabilities.Map</h2>
+            
+            <div class="filter-container" id="skills-filters">
+                <button class="filter-btn active hover-target" onclick="filterSection('skills-list', 'all', this); window.set3DTheme('all')">All Tech</button>
+                <button class="filter-btn hover-target" onclick="filterSection('skills-list', 'data-ml', this); window.set3DTheme('data')">Data & ML</button>
+                <button class="filter-btn hover-target" onclick="filterSection('skills-list', 'dev', this); window.set3DTheme('software')">Dev & Architecture</button>
+            </div>
+
+            <div class="skills-grid" id="skills-list">
+                <!-- Dev & Arch -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">Python</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">JavaScript / Node.js</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">Express.js & React.js</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">MongoDB / NoSQL</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">SQL / RDBMS</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">REST APIs & Postman</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">Object Oriented Programming (OOP)</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">Git & GitHub</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="dev">HTML5 & CSS3</div> <!--[cite: 1, 2] -->
+
+                <!-- Data & ML -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Machine Learning / Scikit-learn</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Pandas & NumPy</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Matplotlib & Seaborn</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Tableau & Power BI</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Data Cleaning & Processing</div> <!--[cite: 1, 2] -->
+                <div class="large-skill filterable-item hover-target" data-category="data-ml">Streamlit</div> <!--[cite: 1, 2] -->
+            </div>
+        </section>
+
+        <!-- CERTIFICATIONS -->
+        <section id="certifications" class="content-section">
+            <h2>Certifications.Verified</h2>
+            <div class="timeline-container">
+                
+                <div class="timeline-item clickable hover-target" onclick="openCertModal('https://www.hackerrank.com/certificates/iframe/70d48ef4056f')">
+                    <div class="timeline-date">
+                        <span class="date-text cert">HackerRank<br>Verified</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>JavaScript (Basic)</h3>
+                        <p>Demonstrated strong foundational knowledge of JavaScript including ES6 features, functions, and core logic implementations.</p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Click to View Credential</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item clickable hover-target" onclick="openCertModal('https://www.hackerrank.com/certificates/iframe/c0fdf415bb05')">
+                    <div class="timeline-date">
+                        <span class="date-text cert">HackerRank<br>Verified</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>SQL (Basic)</h3> <!--[cite: 1, 2] -->
+                        <p>Validated capability to write and optimize relational database queries, joins, and aggregations.</p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Click to View Credential</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item clickable hover-target" onclick="openCertModal('https://www.hackerrank.com/certificates/iframe/7cf749e348f2')">
+                    <div class="timeline-date">
+                        <span class="date-text cert">HackerRank<br>Verified</span> <!--[cite: 1, 2] -->
+                    </div>
+                    <div class="timeline-content">
+                        <h3>CSS (Basic)</h3> <!--[cite: 1, 2] -->
+                        <p>Proven understanding of styling architectures, responsive design properties, and modern CSS layout techniques.</p>
+                        <div class="skills-container">
+                            <span class="skill-tag">Click to View Credential</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+        
+        <div style="height: 100px;"></div>
+    </div>
+
+    <!-- SCRIPTS -->
+
+    <!-- DYNAMIC FILTER LOGIC -->
+    <script>
+        function filterSection(sectionId, category, btnElement) {
+            const container = btnElement.closest('.filter-container');
+            container.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+
+            const items = document.querySelectorAll(`#${sectionId} .filterable-item`);
+            items.forEach(item => {
+                const categories = item.getAttribute('data-category').split(' ');
+                if (category === 'all' || categories.includes(category)) {
+                    item.style.display = ''; 
+                    setTimeout(() => item.style.opacity = '1', 10);
+                } else {
+                    item.style.opacity = '0';
+                    setTimeout(() => item.style.display = 'none', 400); 
+                }
+            });
+        }
+    </script>
+
+    <!-- THE DUAL 3D ENGINE -->
+    <script>
+        const canvas = document.querySelector('#bg-canvas');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030303, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 15, 20);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // --- ENGINE 1: SOFTWARE SERVER CUBES ---
+        const clusterGroup = new THREE.Group();
+        scene.add(clusterGroup);
+
+        const gridSize = 10;
+        const cubeSize = 1.2;
+        const gap = 1.8;
+        const offset = (gridSize * gap) / 2;
+        const boxGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const boxEdges = new THREE.EdgesGeometry(boxGeo);
+        
+        let currentTheme = 'all'; 
+        let cubeAlpha = 1;
+        let dataAlpha = 1;
+
+        const nodes = [];
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const cubeMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0.05 });
+                const wireMat = new THREE.LineBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0.2 });
+                const cube = new THREE.Mesh(boxGeo, cubeMat);
+                const wire = new THREE.LineSegments(boxEdges, wireMat);
+                cube.add(wire);
+                cube.position.set(i * gap - offset, 0, j * gap - offset);
+                clusterGroup.add(cube);
+                nodes.push({ mesh: cube, wire: wire, x: i, z: j, randomBase: Math.random() * Math.PI * 2 });
+            }
+        }
+        clusterGroup.position.y = -6;
+
+        // --- ENGINE 2: DATA SCIENCE CONSTELLATION ---
+        const particleSystemGroup = new THREE.Group();
+        scene.add(particleSystemGroup);
+
+        const particleCount = 200;
+        const particles = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleVelocities = [];
+
+        for (let i = 0; i < particleCount; i++) {
+            particlePositions[i * 3]     = (Math.random() - 0.5) * 80;
+            particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+            particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+            particleVelocities.push({ x: (Math.random() - 0.5) * 0.05, y: (Math.random() - 0.5) * 0.05, z: (Math.random() - 0.5) * 0.05 });
+        }
+
+        particles.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        const pMaterial = new THREE.PointsMaterial({ color: 0x4facfe, size: 0.3, transparent: true, opacity: 0.8 });
+        const particleMesh = new THREE.Points(particles, pMaterial);
+        particleSystemGroup.add(particleMesh);
+
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x4facfe, transparent: true, opacity: 0.15 });
+        const lineGeometry = new THREE.BufferGeometry();
+        const maxLines = 2000;
+        const linePositions = new Float32Array(maxLines * 6);
+        lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+        const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+        particleSystemGroup.add(lineMesh);
+
+        window.set3DTheme = function(theme) { currentTheme = theme; }
+        const clock = new THREE.Clock();
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            const time = clock.getElapsedTime();
+
+            const targetCube = (currentTheme === 'all' || currentTheme === 'software') ? 1 : 0;
+            const targetData = (currentTheme === 'all' || currentTheme === 'data') ? 1 : 0;
+            
+            cubeAlpha += (targetCube - cubeAlpha) * 0.05;
+            dataAlpha += (targetData - dataAlpha) * 0.05;
+
+            // ANIMATE CUBES 
+            nodes.forEach(node => {
+                const waveX = Math.sin(node.x * 0.5 + time * 1.2);
+                const waveZ = Math.cos(node.z * 0.5 + time * 0.8);
+                const load = Math.max(0, waveX * waveZ) + Math.sin(time * 3 + node.randomBase) * 0.2;
+                
+                const height = 1 + Math.max(0, load) * 3;
+                node.mesh.scale.y = height;
+                node.mesh.position.y = (height * cubeSize) / 2 - (cubeSize / 2);
+                node.mesh.material.opacity = (0.05 + load * 0.3) * cubeAlpha;
+                node.wire.material.opacity = (0.15 + load * 0.4) * cubeAlpha;
+            });
+            clusterGroup.rotation.y = time * 0.03;
+
+            // ANIMATE PARTICLES 
+            const posArray = particleMesh.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                posArray[i * 3]     += particleVelocities[i].x;
+                posArray[i * 3 + 1] += particleVelocities[i].y;
+                posArray[i * 3 + 2] += particleVelocities[i].z;
+
+                if (Math.abs(posArray[i * 3]) > 40) particleVelocities[i].x *= -1;
+                if (Math.abs(posArray[i * 3 + 1]) > 20) particleVelocities[i].y *= -1;
+                if (Math.abs(posArray[i * 3 + 2]) > 40) particleVelocities[i].z *= -1;
+            }
+            particleMesh.geometry.attributes.position.needsUpdate = true;
+
+            let lineIndex = 0;
+            for (let i = 0; i < particleCount; i++) {
+                for (let j = i + 1; j < particleCount; j++) {
+                    const dx = posArray[i * 3] - posArray[j * 3];
+                    const dy = posArray[i * 3 + 1] - posArray[j * 3 + 1];
+                    const dz = posArray[i * 3 + 2] - posArray[j * 3 + 2];
+                    const distSq = dx*dx + dy*dy + dz*dz;
+
+                    if (distSq < 40 && lineIndex < maxLines) {
+                        linePositions[lineIndex * 6]     = posArray[i * 3];
+                        linePositions[lineIndex * 6 + 1] = posArray[i * 3 + 1];
+                        linePositions[lineIndex * 6 + 2] = posArray[i * 3 + 2];
+                        linePositions[lineIndex * 6 + 3] = posArray[j * 3];
+                        linePositions[lineIndex * 6 + 4] = posArray[j * 3 + 1];
+                        linePositions[lineIndex * 6 + 5] = posArray[j * 3 + 2];
+                        lineIndex++;
+                    }
+                }
+            }
+            lineMesh.geometry.setDrawRange(0, lineIndex * 2);
+            lineMesh.geometry.attributes.position.needsUpdate = true;
+            
+            particleSystemGroup.rotation.y = time * -0.02; 
+            pMaterial.opacity = 0.8 * dataAlpha;
+            lineMaterial.opacity = 0.2 * dataAlpha;
+
+            // Desktop Parallax
+            if(typeof cursorDot !== 'undefined' && cursorDot.style.left && window.innerWidth > 768 && !document.body.classList.contains('modal-open')) {
+                let mouseX = (parseFloat(cursorDot.style.left) / window.innerWidth) * 2 - 1;
+                let mouseY = -(parseFloat(cursorDot.style.top) / window.innerHeight) * 2 + 1;
+                camera.position.x += ((20 + mouseX * 8) - camera.position.x) * 0.05;
+                camera.position.y += ((15 - mouseY * 3) - camera.position.y) * 0.05;
+                camera.lookAt(0, -2, 0);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate3D();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+    <!-- Modal Logic -->
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            document.body.classList.remove('modal-open');
+            if(modalId === 'cert-modal') {
+                setTimeout(() => { document.getElementById('cert-iframe').src = ''; }, 400); 
+            }
+        }
+
+        function openCertModal(iframeUrl) {
+            document.getElementById('cert-iframe').src = iframeUrl;
+            openModal('cert-modal');
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) closeModal(this.id);
+            });
+        });
+    </script>
+
+    <!-- Custom Cursor & Clipboard -->
+    <script>
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        
+        function attachHoverEvents() {
+            const hoverTargets = document.querySelectorAll('.hover-target, a, button, img[onclick], .timeline-item.clickable');
+            hoverTargets.forEach(target => {
+                target.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+                target.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+            });
+        }
+        attachHoverEvents();
+
+        if (window.innerWidth > 768) {
+            window.addEventListener('mousemove', function (e) {
+                if(!document.body.classList.contains('modal-open')){
+                    const posX = e.clientX; const posY = e.clientY;
+                    cursorDot.style.left = `${posX}px`; cursorDot.style.top = `${posY}px`;
+                    cursorOutline.animate({ left: `${posX}px`, top: `${posY}px` }, { duration: 100, fill: "forwards" });
+                }
+            });
+        }
+
+        function copyToClipboard(text, btnElement) {
+            navigator.clipboard.writeText(text);
+            const span = btnElement.querySelector('span');
+            const originalText = span.innerText;
+            span.innerText = "Copied!"; span.style.color = "var(--accent-cyan)";
+            setTimeout(() => { span.innerText = originalText; span.style.color = ""; }, 2000);
+        }
+    </script>
+
+    <!-- Scroll Reveal & Parallax Hero -->
+    <script>
+        const heroContent = document.getElementById('hero-content');
+        const navbar = document.getElementById('navbar');
+        const desktopLogo = document.getElementById('desktop-logo');
+
+        window.addEventListener('scroll', () => {
+            let scrollPos = window.scrollY;
+            
+            if (scrollPos < window.innerHeight) {
+                let opacity = 1 - (scrollPos / (window.innerHeight * 0.5));
+                heroContent.style.opacity = Math.max(opacity, 0);
+                heroContent.style.transform = `translate(-50%, calc(-50% + ${scrollPos * 0.4}px))`;
+            }
+            
+            if (scrollPos > 100) { 
+                navbar.classList.add('scrolled'); 
+                if (desktopLogo) desktopLogo.classList.add('scrolled');
+            } else { 
+                navbar.classList.remove('scrolled'); 
+                if (desktopLogo) desktopLogo.classList.remove('scrolled');
+            }
+        });
+
+        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.15 };
+        const sectionObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible'); observer.unobserve(entry.target); 
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.content-section').forEach(section => { sectionObserver.observe(section); });
+    </script>
+
+    <!-- Smooth Scrolling -->
+    <script>
+        document.querySelectorAll('nav a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+
+</body>
+</html>
